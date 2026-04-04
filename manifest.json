@@ -1,0 +1,9 @@
+{
+  "id": "edwin-kanban",
+  "name": "Edwin Kanban",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "description": "A Notion-style Kanban board with custom colors and smooth drag-and-drop.",
+  "author": "Edwin Darmadi",
+  "isDesktopOnly": false
+}
