@@ -6,6 +6,11 @@
   overflow-x: auto;
   height: 100%;
   align-items: flex-start;
+  transition: margin-right 0.3s ease;
+}
+
+.ek-board.ek-board-with-panel {
+  margin-right: 380px;
 }
 
 /* ── Column ── */
@@ -17,6 +22,12 @@
   display: flex;
   flex-direction: column;
   max-height: calc(100% - 20px);
+  transition: border-color 0.2s ease;
+  border: 2px solid transparent;
+}
+
+.ek-column.ek-column-wip-over {
+  border-color: var(--text-error);
 }
 
 .ek-column-header {
@@ -36,6 +47,28 @@
   letter-spacing: 0.5px;
   margin: 0;
   flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ek-column-count {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.15s ease;
+}
+
+.ek-column-count:hover {
+  background: var(--background-modifier-hover);
+}
+
+.ek-column-wip-over .ek-column-count {
+  color: var(--text-error);
+  font-weight: 600;
 }
 
 /* ── Color picker ── */
@@ -104,7 +137,7 @@
 
 /* ── Card text ── */
 .ek-card-text {
-  cursor: text;
+  cursor: pointer;
   min-height: 20px;
   flex: 1;
   word-break: break-word;
@@ -122,6 +155,43 @@
   padding: 2px 4px;
   min-height: 24px;
   flex: 1;
+}
+
+/* ── Card badges ── */
+.ek-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.ek-card-due-badge {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--background-secondary);
+  color: var(--text-muted);
+}
+
+.ek-card-due-overdue {
+  background: rgba(235, 87, 87, 0.15);
+  color: var(--text-error);
+  font-weight: 600;
+}
+
+.ek-card-due-soon {
+  background: rgba(242, 201, 76, 0.2);
+  color: #b8860b;
+  font-weight: 600;
+}
+
+.ek-card-tag {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  opacity: 0.8;
 }
 
 /* ── Delete button ── */
@@ -144,7 +214,7 @@
   color: var(--text-error);
 }
 
-/* ── Add card button ── */
+/* ── Add card & archive buttons ── */
 .ek-add-card {
   width: 100%;
   padding: 8px 16px;
@@ -163,6 +233,24 @@
   color: var(--text-normal);
 }
 
+.ek-archive-btn {
+  width: 100%;
+  padding: 6px 16px;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--background-modifier-border);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  text-align: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.ek-archive-btn:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
 /* ── Drop indicator ── */
 .ek-drop-indicator {
   height: 3px;
@@ -174,4 +262,254 @@
 /* ── FLIP animation ── */
 .ek-card-animate {
   transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* ══════════════════════════════════════════
+   Detail Panel (slide-out from right)
+   ══════════════════════════════════════════ */
+
+.ek-panel-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 100;
+  animation: ek-fade-in 0.2s ease;
+}
+
+@keyframes ek-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.ek-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 380px;
+  height: 100%;
+  background: var(--background-primary);
+  border-left: 1px solid var(--background-modifier-border);
+  z-index: 101;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.1);
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.ek-panel.ek-panel-open {
+  transform: translateX(0);
+}
+
+.ek-panel-header {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  gap: 12px;
+}
+
+.ek-panel-title {
+  flex: 1;
+  font-size: 18px;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--text-normal);
+  font-family: inherit;
+  outline: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.15s ease;
+}
+
+.ek-panel-title:focus {
+  background: var(--background-secondary);
+  outline: 2px solid var(--interactive-accent);
+}
+
+.ek-panel-close {
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 0 4px;
+  transition: color 0.15s ease;
+}
+
+.ek-panel-close:hover {
+  color: var(--text-normal);
+}
+
+.ek-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.ek-panel-section {
+  margin-bottom: 24px;
+}
+
+.ek-panel-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+/* ── Panel: Notes ── */
+.ek-panel-notes {
+  width: 100%;
+  min-height: 80px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 10px 12px;
+  border-radius: 6px;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.ek-panel-notes:focus {
+  border-color: var(--interactive-accent);
+}
+
+/* ── Panel: Date input ── */
+.ek-panel-date-input {
+  padding: 6px 10px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  font: inherit;
+  font-size: 14px;
+  border-radius: 6px;
+  outline: none;
+}
+
+.ek-panel-date-input:focus {
+  border-color: var(--interactive-accent);
+}
+
+/* ── Panel: Tags ── */
+.ek-panel-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.ek-panel-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.ek-panel-tag-remove {
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0.7;
+  transition: opacity 0.15s ease;
+}
+
+.ek-panel-tag-remove:hover {
+  opacity: 1;
+}
+
+.ek-panel-tag-input {
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  font: inherit;
+  font-size: 13px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  outline: none;
+  width: 100px;
+}
+
+.ek-panel-tag-input:focus {
+  border-color: var(--interactive-accent);
+}
+
+/* ── Panel: Checklist ── */
+.ek-panel-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ek-panel-check-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.ek-panel-checkbox {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.ek-panel-check-text {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-normal);
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background 0.15s ease;
+}
+
+.ek-panel-check-text:focus {
+  background: var(--background-secondary);
+}
+
+.ek-panel-check-delete {
+  opacity: 0;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 16px;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.ek-panel-check-item:hover .ek-panel-check-delete {
+  opacity: 1;
+}
+
+.ek-panel-check-delete:hover {
+  color: var(--text-error);
+}
+
+.ek-panel-add-check {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  text-align: left;
+  padding: 6px 0;
+  transition: color 0.15s ease;
+}
+
+.ek-panel-add-check:hover {
+  color: var(--text-normal);
 }
