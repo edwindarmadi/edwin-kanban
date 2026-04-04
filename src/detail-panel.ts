@@ -1,4 +1,4 @@
-import { Card, ChecklistItem } from "./types";
+import { Card, ChecklistItem, PluginSettings } from "./types";
 import { CSS } from "./constants";
 
 interface PanelCallbacks {
@@ -9,6 +9,7 @@ interface PanelCallbacks {
 export function renderDetailPanel(
   container: HTMLElement,
   card: Card,
+  settings: PluginSettings,
   callbacks: PanelCallbacks
 ): void {
   // Create overlay (click to close)
@@ -36,56 +37,60 @@ export function renderDetailPanel(
   // Body
   const body = panel.createDiv({ cls: CSS.panelBody });
 
-  // ── Due Date section ──
-  const dateSection = body.createDiv({ cls: CSS.panelSection });
-  dateSection.createDiv({ cls: CSS.panelSectionTitle, text: "Due date" });
-  const dateInput = dateSection.createEl("input", {
-    cls: CSS.panelDateInput,
-    type: "date",
-    value: card.dueDate,
-  });
-  dateInput.addEventListener("change", () => {
-    card.dueDate = dateInput.value;
-    callbacks.onUpdate({ ...card });
-  });
-
-  // ── Tags section ──
-  const tagsSection = body.createDiv({ cls: CSS.panelSection });
-  tagsSection.createDiv({ cls: CSS.panelSectionTitle, text: "Tags" });
-  const tagsContainer = tagsSection.createDiv({ cls: CSS.panelTagsContainer });
-
-  function renderTags() {
-    tagsContainer.empty();
-    card.tags.forEach((tag, idx) => {
-      const tagEl = tagsContainer.createSpan({ cls: CSS.panelTag, text: tag });
-      const removeBtn = tagEl.createSpan({
-        cls: CSS.panelTagRemove,
-        text: "×",
-      });
-      removeBtn.addEventListener("click", () => {
-        card.tags.splice(idx, 1);
-        callbacks.onUpdate({ ...card });
-        renderTags();
-      });
+  // ── Due Date section (only if enabled) ──
+  if (settings.enableDueDates) {
+    const dateSection = body.createDiv({ cls: CSS.panelSection });
+    dateSection.createDiv({ cls: CSS.panelSectionTitle, text: "Due date" });
+    const dateInput = dateSection.createEl("input", {
+      cls: CSS.panelDateInput,
+      type: "date",
+      value: card.dueDate,
     });
-
-    const tagInput = tagsContainer.createEl("input", {
-      cls: CSS.panelTagInput,
-      type: "text",
-      placeholder: "Add tag...",
-    });
-    tagInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        const value = tagInput.value.trim();
-        if (value && !card.tags.includes(value)) {
-          card.tags.push(value);
-          callbacks.onUpdate({ ...card });
-          renderTags();
-        }
-      }
+    dateInput.addEventListener("change", () => {
+      card.dueDate = dateInput.value;
+      callbacks.onUpdate({ ...card });
     });
   }
-  renderTags();
+
+  // ── Tags section (only if enabled) ──
+  if (settings.enableTags) {
+    const tagsSection = body.createDiv({ cls: CSS.panelSection });
+    tagsSection.createDiv({ cls: CSS.panelSectionTitle, text: "Tags" });
+    const tagsContainer = tagsSection.createDiv({ cls: CSS.panelTagsContainer });
+
+    function renderTags() {
+      tagsContainer.empty();
+      card.tags.forEach((tag, idx) => {
+        const tagEl = tagsContainer.createSpan({ cls: CSS.panelTag, text: tag });
+        const removeBtn = tagEl.createSpan({
+          cls: CSS.panelTagRemove,
+          text: "×",
+        });
+        removeBtn.addEventListener("click", () => {
+          card.tags.splice(idx, 1);
+          callbacks.onUpdate({ ...card });
+          renderTags();
+        });
+      });
+
+      const tagInput = tagsContainer.createEl("input", {
+        cls: CSS.panelTagInput,
+        type: "text",
+        placeholder: "Add tag...",
+      });
+      tagInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          const value = tagInput.value.trim();
+          if (value && !card.tags.includes(value)) {
+            card.tags.push(value);
+            callbacks.onUpdate({ ...card });
+            renderTags();
+          }
+        }
+      });
+    }
+    renderTags();
+  }
 
   // ── Notes section ──
   const notesSection = body.createDiv({ cls: CSS.panelSection });

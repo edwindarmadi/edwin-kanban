@@ -1,3 +1,15 @@
+export interface PluginSettings {
+  enableDetailPanel: boolean;
+  enableDueDates: boolean;
+  enableTags: boolean;
+}
+
+export const DEFAULT_SETTINGS: PluginSettings = {
+  enableDetailPanel: false,
+  enableDueDates: false,
+  enableTags: false,
+};
+
 export interface ChecklistItem {
   text: string;
   checked: boolean;

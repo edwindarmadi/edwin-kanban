@@ -1,4 +1,4 @@
-import { Board, BoardCallbacks } from "./types";
+import { Board, BoardCallbacks, PluginSettings } from "./types";
 import { CSS } from "./constants";
 
 function getDueStatus(dueDate: string): "overdue" | "soon" | "" {
@@ -23,7 +23,8 @@ function formatDate(dateStr: string): string {
 export function renderBoard(
   board: Board,
   container: HTMLElement,
-  callbacks: BoardCallbacks
+  callbacks: BoardCallbacks,
+  settings: PluginSettings
 ): void {
   container.empty();
 
@@ -109,14 +110,15 @@ export function renderBoard(
       // Card text
       contentArea.createSpan({ cls: CSS.cardText, text: card.text });
 
-      // Badges row (due date + tags)
-      const hasBadges =
-        card.dueDate || card.tags.length > 0 || card.checklist.length > 0;
-      if (hasBadges) {
+      // Badges row (due date + tags + checklist) — only if features are enabled
+      const showDue = settings.enableDueDates && !!card.dueDate;
+      const showTags = settings.enableTags && card.tags.length > 0;
+      const showChecklist = settings.enableDetailPanel && card.checklist.length > 0;
+
+      if (showDue || showTags || showChecklist) {
         const badgesEl = contentArea.createDiv({ cls: CSS.cardBadges });
 
-        // Due date badge
-        if (card.dueDate) {
+        if (showDue) {
           const status = getDueStatus(card.dueDate);
           let badgeCls = CSS.cardDueBadge;
           if (status === "overdue") badgeCls += ` ${CSS.cardDueOverdue}`;
@@ -128,8 +130,7 @@ export function renderBoard(
           });
         }
 
-        // Checklist progress
-        if (card.checklist.length > 0) {
+        if (showChecklist) {
           const done = card.checklist.filter((c) => c.checked).length;
           badgesEl.createSpan({
             cls: CSS.cardDueBadge,
@@ -137,9 +138,10 @@ export function renderBoard(
           });
         }
 
-        // Tags
-        for (const tag of card.tags) {
-          badgesEl.createSpan({ cls: CSS.cardTag, text: tag });
+        if (showTags) {
+          for (const tag of card.tags) {
+            badgesEl.createSpan({ cls: CSS.cardTag, text: tag });
+          }
         }
       }
 

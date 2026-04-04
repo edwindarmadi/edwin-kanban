@@ -51,12 +51,14 @@ After rebuilding, reload plugins in Obsidian: Settings → Community Plugins →
 - [x] Add card button
 - [x] Card reordering
 
-### Tier 2 — Useful features (done, needs testing)
-- [x] Card detail panel (slide-out with notes, checklist, due date, tags)
-- [x] Due dates with visual warnings (red = overdue, yellow = due soon)
-- [x] Tags with custom colors
-- [x] WIP limit indicators (red border when over limit)
-- [x] Archive done cards
+### Tier 2 — Useful features (done)
+- [x] WIP limit indicators (red border when over limit) — always on
+- [x] Archive done cards — always on
+- [x] Card detail panel (slide-out with notes, checklist) — **optional, off by default**
+- [x] Due dates with visual warnings (red = overdue, yellow = due soon) — **optional, off by default**
+- [x] Tags with custom colors — **optional, off by default**
+
+> Optional features are toggled in Settings → Edwin Kanban. Data is preserved even when a feature is off.
 
 ### Tier 3 — Polish & power features (not started)
 - [ ] Filter & search

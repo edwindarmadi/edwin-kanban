@@ -1,15 +1,30 @@
-import { TextFileView } from "obsidian";
+import { TextFileView, WorkspaceLeaf } from "obsidian";
 import { VIEW_TYPE_KANBAN } from "./constants";
-import { Board, BoardCallbacks, Card } from "./types";
+import { Board, BoardCallbacks, Card, PluginSettings } from "./types";
 import { parseMarkdown, serializeBoard } from "./parser";
 import { renderBoard } from "./board-renderer";
 import { enableDragDrop } from "./drag-drop";
 import { renderDetailPanel, removeDetailPanel } from "./detail-panel";
+import type EdwinKanbanPlugin from "./main";
 
 export class KanbanView extends TextFileView {
   private board: Board | null = null;
   private cleanupDragDrop: (() => void) | null = null;
   private openCard: { colIndex: number; cardIndex: number } | null = null;
+  private plugin: EdwinKanbanPlugin;
+
+  constructor(leaf: WorkspaceLeaf, plugin: EdwinKanbanPlugin) {
+    super(leaf);
+    this.plugin = plugin;
+  }
+
+  private get settings(): PluginSettings {
+    return this.plugin.settings;
+  }
+
+  onSettingsChanged(): void {
+    this.refresh();
+  }
 
   getViewType(): string {
     return VIEW_TYPE_KANBAN;
@@ -73,9 +88,10 @@ export class KanbanView extends TextFileView {
         this.requestSave();
         this.refresh();
 
-        // Open the new card's detail panel for immediate editing
-        const newIdx = this.board.columns[colIndex].cards.length - 1;
-        this.openDetailPanel(colIndex, newIdx);
+        if (this.settings.enableDetailPanel) {
+          const newIdx = this.board.columns[colIndex].cards.length - 1;
+          this.openDetailPanel(colIndex, newIdx);
+        }
       },
 
       onCardDelete: (colIndex, cardIndex) => {
@@ -93,7 +109,9 @@ export class KanbanView extends TextFileView {
       },
 
       onCardOpen: (colIndex, cardIndex) => {
-        this.openDetailPanel(colIndex, cardIndex);
+        if (this.settings.enableDetailPanel) {
+          this.openDetailPanel(colIndex, cardIndex);
+        }
       },
 
       onCardUpdate: (colIndex, cardIndex, updatedCard) => {
@@ -118,7 +136,7 @@ export class KanbanView extends TextFileView {
       },
     };
 
-    renderBoard(this.board, this.contentEl, callbacks);
+    renderBoard(this.board, this.contentEl, callbacks, this.settings);
     this.cleanupDragDrop = enableDragDrop(
       this.contentEl,
       callbacks.onCardReorder
@@ -128,7 +146,7 @@ export class KanbanView extends TextFileView {
     this.contentEl.scrollTop = scrollTop;
 
     // Reopen detail panel if one was open
-    if (this.openCard) {
+    if (this.openCard && this.settings.enableDetailPanel) {
       this.openDetailPanel(this.openCard.colIndex, this.openCard.cardIndex);
     }
   }
@@ -150,7 +168,7 @@ export class KanbanView extends TextFileView {
     // Make a working copy so panel edits are tracked
     const cardCopy: Card = JSON.parse(JSON.stringify(card));
 
-    renderDetailPanel(this.contentEl, cardCopy, {
+    renderDetailPanel(this.contentEl, cardCopy, this.settings, {
       onUpdate: (updated) => {
         if (!this.board) return;
         this.board.columns[colIndex].cards[cardIndex] = updated;
