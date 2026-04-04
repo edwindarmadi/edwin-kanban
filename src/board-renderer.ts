@@ -1,71 +1,26 @@
-import { Board, BoardCallbacks, PluginSettings } from "./types";
+import { Board, BoardCallbacks } from "./types";
 import { CSS } from "./constants";
-
-function getDueStatus(dueDate: string): "overdue" | "soon" | "" {
-  if (!dueDate) return "";
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const due = new Date(dueDate + "T00:00:00");
-  const diffDays = Math.ceil(
-    (due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-  );
-  if (diffDays < 0) return "overdue";
-  if (diffDays <= 2) return "soon";
-  return "";
-}
-
-function formatDate(dateStr: string): string {
-  if (!dateStr) return "";
-  const date = new Date(dateStr + "T00:00:00");
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
 
 export function renderBoard(
   board: Board,
   container: HTMLElement,
-  callbacks: BoardCallbacks,
-  settings: PluginSettings
+  callbacks: BoardCallbacks
 ): void {
   container.empty();
 
   const boardEl = container.createDiv({ cls: CSS.board });
 
   board.columns.forEach((col, colIndex) => {
-    const isOverWip =
-      col.wipLimit > 0 && col.cards.length > col.wipLimit;
+    const columnEl = boardEl.createDiv({ cls: CSS.column });
 
-    const columnEl = boardEl.createDiv({
-      cls: `${CSS.column}${isOverWip ? ` ${CSS.columnWipOver}` : ""}`,
-    });
-
-    // Column header
+    // Column header with color strip
     const headerEl = columnEl.createDiv({ cls: CSS.columnHeader });
     if (col.color) {
       headerEl.style.backgroundColor = col.color;
     }
 
-    // Title + count
-    const titleArea = headerEl.createDiv({ cls: CSS.columnTitle });
-    titleArea.createSpan({ text: col.title });
-
-    const countText =
-      col.wipLimit > 0
-        ? `${col.cards.length}/${col.wipLimit}`
-        : `${col.cards.length}`;
-    titleArea.createSpan({ cls: CSS.columnCount, text: countText });
-
-    // WIP limit setter (click count to set)
-    titleArea
-      .querySelector(`.${CSS.columnCount}`)!
-      .addEventListener("click", (e) => {
-        e.stopPropagation();
-        const current = col.wipLimit || "";
-        const input = prompt("Set WIP limit (0 or empty = no limit):", String(current));
-        if (input !== null) {
-          const limit = parseInt(input) || 0;
-          callbacks.onWipLimitChange(colIndex, limit);
-        }
-      });
+    // Column title
+    headerEl.createEl("h3", { cls: CSS.columnTitle, text: col.title });
 
     // Color picker dot
     const colorWrapper = headerEl.createDiv({
@@ -83,10 +38,8 @@ export function renderBoard(
     });
     colorWrapper.addEventListener("click", () => colorInput.click());
     colorInput.addEventListener("input", (e) => {
-      callbacks.onColumnColorChange(
-        colIndex,
-        (e.target as HTMLInputElement).value
-      );
+      const value = (e.target as HTMLInputElement).value;
+      callbacks.onColumnColorChange(colIndex, value);
     });
 
     // Card list
@@ -99,57 +52,48 @@ export function renderBoard(
       cardEl.dataset.colIndex = String(colIndex);
       cardEl.dataset.cardIndex = String(cardIndex);
 
-      // Click card to open detail panel
-      cardEl.addEventListener("click", () => {
-        callbacks.onCardOpen(colIndex, cardIndex);
-      });
+      // Card text (click to edit)
+      const textEl = cardEl.createSpan({ cls: CSS.cardText, text: card.text });
 
-      // Card content area
-      const contentArea = cardEl.createDiv();
-
-      // Card text
-      contentArea.createSpan({ cls: CSS.cardText, text: card.text });
-
-      // Badges row (due date + tags + checklist) — only if features are enabled
-      const showDue = settings.enableDueDates && !!card.dueDate;
-      const showTags = settings.enableTags && card.tags.length > 0;
-      const showChecklist = settings.enableDetailPanel && card.checklist.length > 0;
-
-      if (showDue || showTags || showChecklist) {
-        const badgesEl = contentArea.createDiv({ cls: CSS.cardBadges });
-
-        if (showDue) {
-          const status = getDueStatus(card.dueDate);
-          let badgeCls = CSS.cardDueBadge;
-          if (status === "overdue") badgeCls += ` ${CSS.cardDueOverdue}`;
-          if (status === "soon") badgeCls += ` ${CSS.cardDueSoon}`;
-
-          badgesEl.createSpan({
-            cls: badgeCls,
-            text: formatDate(card.dueDate),
-          });
-        }
-
-        if (showChecklist) {
-          const done = card.checklist.filter((c) => c.checked).length;
-          badgesEl.createSpan({
-            cls: CSS.cardDueBadge,
-            text: `${done}/${card.checklist.length}`,
-          });
-        }
-
-        if (showTags) {
-          for (const tag of card.tags) {
-            badgesEl.createSpan({ cls: CSS.cardTag, text: tag });
-          }
-        }
-      }
-
-      // Delete button
+      // Delete button (visible on hover via CSS)
       const deleteEl = cardEl.createSpan({ cls: CSS.cardDelete, text: "×" });
       deleteEl.addEventListener("click", (e) => {
         e.stopPropagation();
         callbacks.onCardDelete(colIndex, cardIndex);
+      });
+
+      // Inline editing
+      textEl.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const textarea = document.createElement("textarea");
+        textarea.className = CSS.cardEdit;
+        textarea.value = card.text;
+        textarea.rows = Math.max(1, Math.ceil(card.text.length / 30));
+
+        textEl.replaceWith(textarea);
+        textarea.focus();
+        textarea.select();
+
+        const save = () => {
+          const newText = textarea.value.trim();
+          if (newText && newText !== card.text) {
+            callbacks.onCardEdit(colIndex, cardIndex, newText);
+          } else {
+            // Restore original text if empty or unchanged
+            textarea.replaceWith(textEl);
+          }
+        };
+
+        textarea.addEventListener("blur", save);
+        textarea.addEventListener("keydown", (ke) => {
+          if (ke.key === "Enter" && !ke.shiftKey) {
+            ke.preventDefault();
+            textarea.blur();
+          }
+          if (ke.key === "Escape") {
+            textarea.replaceWith(textEl);
+          }
+        });
       });
     });
 
@@ -158,17 +102,8 @@ export function renderBoard(
       cls: CSS.addCard,
       text: "+ Add card",
     });
-    addBtn.addEventListener("click", () => callbacks.onCardAdd(colIndex));
-
-    // Archive button (only on columns named "Done")
-    if (col.title.toLowerCase() === "done" && col.cards.length > 0) {
-      const archiveBtn = columnEl.createEl("button", {
-        cls: CSS.archiveBtn,
-        text: "Archive all",
-      });
-      archiveBtn.addEventListener("click", () =>
-        callbacks.onArchiveDone(colIndex)
-      );
-    }
+    addBtn.addEventListener("click", () => {
+      callbacks.onCardAdd(colIndex);
+    });
   });
 }
