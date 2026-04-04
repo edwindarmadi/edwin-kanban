@@ -44,9 +44,15 @@ export function parseMarkdown(raw: string): Board {
     for (let i = 1; i < lines.length; i++) {
       const cardMatch = lines[i].match(/^- \[([ x])\] (.+)$/);
       if (cardMatch) {
+        let text = cardMatch[2];
+        // Collect indented continuation lines
+        while (i + 1 < lines.length && lines[i + 1].match(/^  /)) {
+          i++;
+          text += "\n" + lines[i].slice(2);
+        }
         cards.push({
           checked: cardMatch[1] === "x",
-          text: cardMatch[2],
+          text,
         });
       }
     }
@@ -69,7 +75,11 @@ export function serializeBoard(board: Board): string {
     md += `## ${col.title}\n\n`;
     for (const card of col.cards) {
       const check = card.checked ? "x" : " ";
-      md += `- [${check}] ${card.text}\n`;
+      const lines = card.text.split("\n");
+      md += `- [${check}] ${lines[0]}\n`;
+      for (let i = 1; i < lines.length; i++) {
+        md += `  ${lines[i]}\n`;
+      }
     }
     md += "\n";
   }

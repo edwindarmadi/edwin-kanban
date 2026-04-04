@@ -110,6 +110,32 @@
   word-break: break-word;
 }
 
+.ek-bullet-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 1.6em;
+}
+
+.ek-bullet {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  position: relative;
+  top: -1px;
+}
+
+.ek-bullet-filled {
+  background: var(--text-muted);
+}
+
+.ek-bullet-hollow {
+  background: transparent;
+  border: 1.5px solid var(--text-muted);
+}
+
 .ek-card-edit {
   width: 100%;
   border: none;
