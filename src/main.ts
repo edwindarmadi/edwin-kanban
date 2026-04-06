@@ -15,7 +15,18 @@ export default class EdwinKanbanPlugin extends Plugin {
       })
     );
 
-    // Also check files that are already open when plugin loads
+    // When switching tabs, check if the new leaf is a kanban board
+    this.registerEvent(
+      this.app.workspace.on("active-leaf-change", (leaf) => {
+        if (!leaf) return;
+        const file = (leaf.view as any)?.file;
+        if (file instanceof TFile) {
+          this.checkAndSwitchView(file, leaf);
+        }
+      })
+    );
+
+    // Check files already open when plugin loads
     this.app.workspace.onLayoutReady(() => {
       this.app.workspace.iterateAllLeaves((leaf) => {
         const file = (leaf.view as any)?.file;
@@ -24,6 +35,32 @@ export default class EdwinKanbanPlugin extends Plugin {
         }
       });
     });
+
+    // Catch cache race: metadata wasn't ready when file first opened
+    this.registerEvent(
+      this.app.metadataCache.on("changed", (file) => {
+        this.app.workspace.iterateAllLeaves((leaf) => {
+          if (
+            (leaf.view as any)?.file?.path === file.path &&
+            leaf.view.getViewType() === "markdown"
+          ) {
+            this.checkAndSwitchView(file, leaf);
+          }
+        });
+      })
+    );
+
+    // Catch startup race: layout ready before cache finished
+    this.registerEvent(
+      this.app.metadataCache.on("resolved", () => {
+        this.app.workspace.iterateAllLeaves((leaf) => {
+          const file = (leaf.view as any)?.file;
+          if (file instanceof TFile) {
+            this.checkAndSwitchView(file, leaf);
+          }
+        });
+      })
+    );
 
     // Add ribbon icon
     this.addRibbonIcon("columns-3", "New Kanban Board", async () => {
