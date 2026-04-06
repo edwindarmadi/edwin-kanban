@@ -1,3 +1,4 @@
+import { Platform } from "obsidian";
 import { Board, BoardCallbacks } from "./types";
 import { CSS } from "./constants";
 
@@ -95,22 +96,49 @@ export function renderBoard(
           textarea.style.height = textarea.scrollHeight + "px";
         };
 
-        textEl.replaceWith(textarea);
-        textarea.focus();
-        textarea.select();
-        autoResize();
+        if (Platform.isMobile) {
+          // Mobile: fixed-position editing bar above keyboard
+          cardEl.addClass("ek-card-editing");
 
-        const save = () => {
-          const newText = textarea.value.trim();
-          if (newText && newText !== card.text) {
-            callbacks.onCardEdit(colIndex, cardIndex, newText);
-          } else {
-            // Restore original text if empty or unchanged
-            textarea.replaceWith(textEl);
-          }
-        };
+          const overlay = document.createElement("div");
+          overlay.className = "ek-mobile-editor";
+          overlay.appendChild(textarea);
+          document.body.appendChild(overlay);
 
-        textarea.addEventListener("blur", save);
+          textarea.focus();
+          autoResize();
+
+          // Wait for keyboard to appear, then scroll the highlighted card into view
+          setTimeout(() => {
+            cardEl.scrollIntoView({ behavior: "smooth", block: "center" });
+          }, 400);
+
+          const save = () => {
+            cardEl.removeClass("ek-card-editing");
+            const newText = textarea.value.trim();
+            if (newText && newText !== card.text) {
+              callbacks.onCardEdit(colIndex, cardIndex, newText);
+            }
+            overlay.remove();
+          };
+          textarea.addEventListener("blur", save);
+        } else {
+          // Desktop: inline editing
+          textEl.replaceWith(textarea);
+          textarea.focus();
+          textarea.select();
+          autoResize();
+
+          const save = () => {
+            const newText = textarea.value.trim();
+            if (newText && newText !== card.text) {
+              callbacks.onCardEdit(colIndex, cardIndex, newText);
+            } else {
+              textarea.replaceWith(textEl);
+            }
+          };
+          textarea.addEventListener("blur", save);
+        }
 
         // Auto-convert "- " at line start to "• "
         textarea.addEventListener("input", () => {

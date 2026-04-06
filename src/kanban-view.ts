@@ -1,4 +1,4 @@
-import { TextFileView, WorkspaceLeaf } from "obsidian";
+import { TextFileView, WorkspaceLeaf, Platform } from "obsidian";
 import { VIEW_TYPE_KANBAN } from "./constants";
 import { Board, BoardCallbacks } from "./types";
 import { parseMarkdown, serializeBoard } from "./parser";
@@ -42,6 +42,10 @@ export class KanbanView extends TextFileView {
 
     if (!this.board) return;
 
+    if (Platform.isMobile) {
+      this.contentEl.addClass("ek-mobile");
+    }
+
     const callbacks: BoardCallbacks = {
       onCardEdit: (colIndex, cardIndex, newText) => {
         if (!this.board) return;
@@ -73,7 +77,12 @@ export class KanbanView extends TextFileView {
             `[data-col-index="${colIndex}"] .ek-card-text`
           );
           const lastCard = cards[cards.length - 1] as HTMLElement;
-          lastCard?.click();
+          if (lastCard) {
+            lastCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            if (!Platform.isMobile) {
+              lastCard.click();
+            }
+          }
         }, 50);
       },
 
