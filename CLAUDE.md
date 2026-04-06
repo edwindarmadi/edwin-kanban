@@ -50,8 +50,10 @@ npm run dev    # watch mode — rebuilds on save
 npm run build  # production build (minified)
 ```
 
-The plugin lives in the Obsidian vault at:
-`/Users/edwindarmadi/Edwin's Notepad/.obsidian/plugins/edwin-kanban/`
+The working directory is `/Users/edwindarmadi/Projects/edwin-kanban/` (open Claude from here, not the parent `Projects` folder).
+
+The plugin lives in the Obsidian vault via symlink:
+`/Users/edwindarmadi/Edwin's Notepad/.obsidian/plugins/edwin-kanban/` → this folder
 
 After rebuilding, reload plugins in Obsidian: Settings → Community Plugins → refresh icon.
 
