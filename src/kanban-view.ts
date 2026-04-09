@@ -29,6 +29,10 @@ export class KanbanView extends TextFileView {
   clear(): void {
     this.contentEl.empty();
     this.cleanupDragDrop?.();
+    this.contentEl.removeClass("ek-mobile");
+    this.contentEl.style.removeProperty("padding-bottom");
+    this.contentEl.style.removeProperty("scroll-padding-bottom");
+    this.contentEl.style.removeProperty("box-sizing");
     this.board = null;
   }
 
@@ -44,6 +48,16 @@ export class KanbanView extends TextFileView {
 
     if (Platform.isMobile) {
       this.contentEl.addClass("ek-mobile");
+      const bottomClearance =
+        "calc(var(--mobile-navbar-height, 0px) + env(safe-area-inset-bottom, 0px) + 24px)";
+      this.contentEl.style.setProperty("padding-bottom", bottomClearance);
+      this.contentEl.style.setProperty("scroll-padding-bottom", bottomClearance);
+      this.contentEl.style.setProperty("box-sizing", "border-box");
+    } else {
+      this.contentEl.removeClass("ek-mobile");
+      this.contentEl.style.removeProperty("padding-bottom");
+      this.contentEl.style.removeProperty("scroll-padding-bottom");
+      this.contentEl.style.removeProperty("box-sizing");
     }
 
     const callbacks: BoardCallbacks = {
@@ -106,6 +120,13 @@ export class KanbanView extends TextFileView {
       this.contentEl,
       callbacks.onCardReorder
     );
+
+    if (Platform.isMobile) {
+      const spacer = this.contentEl.createDiv({ cls: "ek-mobile-bottom-spacer" });
+      spacer.style.height =
+        "calc(var(--mobile-navbar-height, 0px) + env(safe-area-inset-bottom, 0px) + 24px)";
+      spacer.style.pointerEvents = "none";
+    }
 
     // Restore scroll position
     this.contentEl.scrollLeft = scrollLeft;
