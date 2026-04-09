@@ -4,7 +4,8 @@
   gap: 12px;
   padding: 20px;
   overflow-x: auto;
-  height: 100%;
+  overflow-y: visible;
+  min-height: 100%;
   align-items: flex-start;
 }
 
@@ -16,7 +17,6 @@
   border-radius: 8px;
   display: flex;
   flex-direction: column;
-  max-height: calc(100% - 20px);
 }
 
 .ek-column-header {
@@ -66,8 +66,8 @@
 /* ── Card list ── */
 .ek-card-list {
   padding: 4px 8px;
-  overflow-y: auto;
-  flex: 1;
+  overflow: visible;
+  flex: 0 0 auto;
   min-height: 40px;
 }
 
@@ -112,7 +112,7 @@
 
 .ek-bullet-line {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
   min-height: 1.6em;
 }
@@ -123,8 +123,11 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  position: relative;
-  top: -1px;
+  margin-top: 0.45em;
+}
+
+.ek-bullet-line > span:last-child {
+  flex: 1;
 }
 
 .ek-bullet-filled {
@@ -217,6 +220,7 @@
 
 .ek-mobile .ek-card-list {
   overflow-y: visible;
+  flex: 0 0 auto;
 }
 
 /* ── Touch screens: show delete button (no hover on touch) ── */
