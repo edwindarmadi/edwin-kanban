@@ -3,3 +3,8 @@ main.js
 *.map
 .claude/
 CLAUDE.md
+SCRATCHPAD.md
+WORKTREE-SETUP.md
+.DS_Store
+data.json
+Obsidian Docs/
