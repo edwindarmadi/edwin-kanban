@@ -119,10 +119,24 @@ export function renderBoard(
         textarea.selectionStart = textarea.selectionEnd = textarea.value.length;
         autoResize();
 
-        // Scroll the card into view once the mobile keyboard opens
+        // Only scroll if the textarea is behind the keyboard or off-screen
+        const scrollIfHidden = () => {
+          if (!window.visualViewport) return;
+          const rect = textarea.getBoundingClientRect();
+          const vpTop = window.visualViewport.offsetTop;
+          const vpBottom = vpTop + window.visualViewport.height;
+          if (rect.top < vpTop || rect.bottom > vpBottom) {
+            textarea.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        };
+
+        // Keyboard already open (switching cards) — check after layout settles
+        requestAnimationFrame(scrollIfHidden);
+
+        // Keyboard just opening — check after it finishes resizing
         if (window.visualViewport) {
           window.visualViewport.addEventListener("resize", () => {
-            textarea.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            requestAnimationFrame(scrollIfHidden);
           }, { once: true });
         }
 
