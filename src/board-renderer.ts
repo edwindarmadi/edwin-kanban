@@ -116,7 +116,7 @@ export function renderBoard(
 
         textEl.replaceWith(textarea);
         textarea.focus();
-        textarea.select();
+        textarea.selectionStart = textarea.selectionEnd = textarea.value.length;
         autoResize();
 
         // Ensure the card is visible above the keyboard on mobile
