@@ -1,4 +1,4 @@
-import { Platform } from "obsidian";
+import { Menu, Platform, setIcon } from "obsidian";
 import { Board, BoardCallbacks } from "./types";
 import { CSS } from "./constants";
 
@@ -86,11 +86,20 @@ export function renderBoard(
       const textEl = cardEl.createDiv({ cls: CSS.cardText });
       renderCardText(textEl, card.text);
 
-      // Delete button (visible on hover via CSS)
-      const deleteEl = cardEl.createSpan({ cls: CSS.cardDelete, text: "×" });
-      deleteEl.addEventListener("click", (e) => {
+      // Menu button (visible on hover via CSS)
+      const menuBtn = cardEl.createSpan({ cls: CSS.cardMenu });
+      setIcon(menuBtn, "more-vertical");
+      menuBtn.addEventListener("click", (e) => {
         e.stopPropagation();
-        callbacks.onCardDelete(colIndex, cardIndex);
+        const menu = new Menu();
+        menu.addItem((item) =>
+          item
+            .setTitle("Delete")
+            .setIcon("trash-2")
+            .setWarning(true)
+            .onClick(() => callbacks.onCardDelete(colIndex, cardIndex))
+        );
+        menu.showAtMouseEvent(e);
       });
 
       // Inline editing

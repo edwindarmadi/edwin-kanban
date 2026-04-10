@@ -157,24 +157,29 @@
   flex: 1;
 }
 
-/* ── Delete button ── */
-.ek-card-delete {
+/* ── Card menu button ── */
+.ek-card-menu {
   opacity: 0;
   cursor: pointer;
   color: var(--text-muted);
-  font-size: 18px;
-  line-height: 1;
   flex-shrink: 0;
   transition: opacity 0.15s ease, color 0.15s ease;
   padding: 0 2px;
+  display: flex;
+  align-items: center;
 }
 
-.ek-card:hover .ek-card-delete {
+.ek-card:hover .ek-card-menu {
   opacity: 1;
 }
 
-.ek-card-delete:hover {
-  color: var(--text-error);
+.ek-card-menu:hover {
+  color: var(--text-normal);
+}
+
+.ek-card-menu svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* ── Add card button ── */
@@ -235,7 +240,7 @@
 
 /* ── Touch screens: show delete button (no hover on touch) ── */
 @media (pointer: coarse) {
-  .ek-card .ek-card-delete {
+  .ek-card .ek-card-menu {
     opacity: 0.6;
   }
 }

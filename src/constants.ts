@@ -22,7 +22,7 @@ export const CSS = {
   card: "ek-card",
   cardText: "ek-card-text",
   cardEdit: "ek-card-edit",
-  cardDelete: "ek-card-delete",
+  cardMenu: "ek-card-menu",
   addCard: "ek-add-card",
   colorDot: "ek-color-dot",
   colorInput: "ek-color-input",
