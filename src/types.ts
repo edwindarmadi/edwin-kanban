@@ -1,4 +1,5 @@
 export interface Card {
+  id: string;       // ephemeral, not serialized to markdown
   text: string;
   checked: boolean;
 }

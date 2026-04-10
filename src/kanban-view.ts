@@ -1,7 +1,7 @@
 import { TextFileView, WorkspaceLeaf, Platform } from "obsidian";
 import { VIEW_TYPE_KANBAN } from "./constants";
 import { Board, BoardCallbacks } from "./types";
-import { parseMarkdown, serializeBoard } from "./parser";
+import { parseMarkdown, serializeBoard, nextCardId } from "./parser";
 import { renderBoard } from "./board-renderer";
 import { enableDragDrop } from "./drag-drop";
 
@@ -30,9 +30,6 @@ export class KanbanView extends TextFileView {
     this.contentEl.empty();
     this.cleanupDragDrop?.();
     this.contentEl.removeClass("ek-mobile");
-    this.contentEl.style.removeProperty("padding-bottom");
-    this.contentEl.style.removeProperty("scroll-padding-bottom");
-    this.contentEl.style.removeProperty("box-sizing");
     this.board = null;
   }
 
@@ -48,28 +45,21 @@ export class KanbanView extends TextFileView {
 
     if (Platform.isMobile) {
       this.contentEl.addClass("ek-mobile");
-      const bottomClearance =
-        "calc(var(--mobile-navbar-height, 0px) + env(safe-area-inset-bottom, 0px) + 24px)";
-      this.contentEl.style.setProperty("padding-bottom", bottomClearance);
-      this.contentEl.style.setProperty("scroll-padding-bottom", bottomClearance);
-      this.contentEl.style.setProperty("box-sizing", "border-box");
     } else {
       this.contentEl.removeClass("ek-mobile");
-      this.contentEl.style.removeProperty("padding-bottom");
-      this.contentEl.style.removeProperty("scroll-padding-bottom");
-      this.contentEl.style.removeProperty("box-sizing");
     }
 
     const callbacks: BoardCallbacks = {
       onCardEdit: (colIndex, cardIndex, newText) => {
-        if (!this.board) return;
+        if (!this.board?.columns[colIndex]?.cards[cardIndex]) return;
         this.board.columns[colIndex].cards[cardIndex].text = newText;
         this.requestSave();
         this.refresh();
       },
 
       onCardReorder: (fromCol, fromIdx, toCol, toIdx) => {
-        if (!this.board) return;
+        if (!this.board?.columns[fromCol]?.cards[fromIdx]) return;
+        if (!this.board?.columns[toCol]) return;
         const card = this.board.columns[fromCol].cards.splice(fromIdx, 1)[0];
         this.board.columns[toCol].cards.splice(toIdx, 0, card);
         this.requestSave();
@@ -77,8 +67,9 @@ export class KanbanView extends TextFileView {
       },
 
       onCardAdd: (colIndex) => {
-        if (!this.board) return;
+        if (!this.board?.columns[colIndex]) return;
         this.board.columns[colIndex].cards.push({
+          id: nextCardId(),
           text: "New card",
           checked: false,
         });
@@ -86,7 +77,7 @@ export class KanbanView extends TextFileView {
         this.refresh();
 
         // Focus the new card for immediate editing
-        setTimeout(() => {
+        requestAnimationFrame(() => {
           const cards = this.contentEl.querySelectorAll(
             `[data-col-index="${colIndex}"] .ek-card-text`
           );
@@ -97,18 +88,18 @@ export class KanbanView extends TextFileView {
               lastCard.click();
             }
           }
-        }, 50);
+        });
       },
 
       onCardDelete: (colIndex, cardIndex) => {
-        if (!this.board) return;
+        if (!this.board?.columns[colIndex]?.cards[cardIndex]) return;
         this.board.columns[colIndex].cards.splice(cardIndex, 1);
         this.requestSave();
         this.refresh();
       },
 
       onColumnColorChange: (colIndex, color) => {
-        if (!this.board) return;
+        if (!this.board?.columns[colIndex]) return;
         this.board.columns[colIndex].color = color;
         this.requestSave();
         this.refresh();
@@ -122,10 +113,7 @@ export class KanbanView extends TextFileView {
     );
 
     if (Platform.isMobile) {
-      const spacer = this.contentEl.createDiv({ cls: "ek-mobile-bottom-spacer" });
-      spacer.style.height =
-        "calc(var(--mobile-navbar-height, 0px) + env(safe-area-inset-bottom, 0px) + 24px)";
-      spacer.style.pointerEvents = "none";
+      this.contentEl.createDiv({ cls: "ek-mobile-bottom-spacer" });
     }
 
     // Restore scroll position

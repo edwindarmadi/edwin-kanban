@@ -1,4 +1,4 @@
-import { Plugin, TFile, WorkspaceLeaf } from "obsidian";
+import { Plugin, TFile, WorkspaceLeaf, FileView } from "obsidian";
 import { VIEW_TYPE_KANBAN, FRONTMATTER_KEY, FRONTMATTER_VALUE } from "./constants";
 import { KanbanView } from "./kanban-view";
 
@@ -19,7 +19,7 @@ export default class EdwinKanbanPlugin extends Plugin {
     this.registerEvent(
       this.app.workspace.on("active-leaf-change", (leaf) => {
         if (!leaf) return;
-        const file = (leaf.view as any)?.file;
+        const file = leaf.view instanceof FileView ? leaf.view.file : null;
         if (file instanceof TFile) {
           this.checkAndSwitchView(file, leaf);
         }
@@ -29,7 +29,7 @@ export default class EdwinKanbanPlugin extends Plugin {
     // Check files already open when plugin loads
     this.app.workspace.onLayoutReady(() => {
       this.app.workspace.iterateAllLeaves((leaf) => {
-        const file = (leaf.view as any)?.file;
+        const file = leaf.view instanceof FileView ? leaf.view.file : null;
         if (file instanceof TFile) {
           this.checkAndSwitchView(file, leaf);
         }
@@ -40,8 +40,9 @@ export default class EdwinKanbanPlugin extends Plugin {
     this.registerEvent(
       this.app.metadataCache.on("changed", (file) => {
         this.app.workspace.iterateAllLeaves((leaf) => {
+          const leafFile = leaf.view instanceof FileView ? leaf.view.file : null;
           if (
-            (leaf.view as any)?.file?.path === file.path &&
+            leafFile?.path === file.path &&
             leaf.view.getViewType() === "markdown"
           ) {
             this.checkAndSwitchView(file, leaf);
@@ -54,7 +55,7 @@ export default class EdwinKanbanPlugin extends Plugin {
     this.registerEvent(
       this.app.metadataCache.on("resolved", () => {
         this.app.workspace.iterateAllLeaves((leaf) => {
-          const file = (leaf.view as any)?.file;
+          const file = leaf.view instanceof FileView ? leaf.view.file : null;
           if (file instanceof TFile) {
             this.checkAndSwitchView(file, leaf);
           }

@@ -1,5 +1,10 @@
 import { Board, BoardSettings, Column, Card } from "./types";
 
+let cardIdCounter = 0;
+export function nextCardId(): string {
+  return `c${cardIdCounter++}`;
+}
+
 export function parseMarkdown(raw: string): Board {
   const columns: Column[] = [];
   let settings: BoardSettings = { "edwin-kanban": "board" };
@@ -51,6 +56,7 @@ export function parseMarkdown(raw: string): Board {
           text += "\n" + lines[i].slice(2);
         }
         cards.push({
+          id: nextCardId(),
           checked: cardMatch[1] === "x",
           text,
         });

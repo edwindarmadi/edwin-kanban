@@ -11,7 +11,7 @@ function renderCardText(container: HTMLElement, text: string): void {
     if (bulletMatch) {
       const indent = bulletMatch[1].length / 2; // each indent level = 2 spaces
       const lineEl = container.createDiv({ cls: "ek-bullet-line" });
-      lineEl.style.paddingLeft = indent * 16 + "px";
+      lineEl.style.setProperty("--indent-level", String(indent));
       const dot = lineEl.createSpan({ cls: "ek-bullet" });
       // Nested bullets get hollow circles, top-level get filled
       dot.classList.add(indent > 0 ? "ek-bullet-hollow" : "ek-bullet-filled");
@@ -29,6 +29,14 @@ export function renderBoard(
 ): void {
   container.empty();
 
+  if (board.columns.length === 0) {
+    container.createDiv({
+      cls: "ek-empty-state",
+      text: "No columns yet. Create a board with columns using ## headings.",
+    });
+    return;
+  }
+
   const boardEl = container.createDiv({ cls: CSS.board });
 
   board.columns.forEach((col, colIndex) => {
@@ -37,7 +45,7 @@ export function renderBoard(
     // Column header with color strip
     const headerEl = columnEl.createDiv({ cls: CSS.columnHeader });
     if (col.color) {
-      headerEl.style.backgroundColor = col.color;
+      headerEl.style.setProperty("--col-color", col.color);
     }
 
     // Column title
@@ -49,15 +57,15 @@ export function renderBoard(
       attr: { "aria-label": "Change column color" },
     });
     if (col.color) {
-      colorWrapper.style.backgroundColor = col.color;
+      colorWrapper.style.setProperty("--col-color", col.color);
     }
 
     const colorInput = colorWrapper.createEl("input", {
       cls: CSS.colorInput,
       type: "color",
       value: col.color || "#e3f2fd",
+      attr: { "aria-label": `Change ${col.title} column color` },
     });
-    colorWrapper.addEventListener("click", () => colorInput.click());
     colorInput.addEventListener("input", (e) => {
       const value = (e.target as HTMLInputElement).value;
       callbacks.onColumnColorChange(colIndex, value);
@@ -72,6 +80,7 @@ export function renderBoard(
       cardEl.draggable = true;
       cardEl.dataset.colIndex = String(colIndex);
       cardEl.dataset.cardIndex = String(cardIndex);
+      cardEl.dataset.cardId = card.id;
 
       // Card text (click to edit)
       const textEl = cardEl.createDiv({ cls: CSS.cardText });
@@ -100,18 +109,22 @@ export function renderBoard(
           // Mobile: fixed-position editing bar above keyboard
           cardEl.addClass("ek-card-editing");
 
-          const overlay = document.createElement("div");
-          overlay.className = "ek-mobile-editor";
+          const overlay = container.createDiv({ cls: "ek-mobile-editor" });
           overlay.appendChild(textarea);
-          document.body.appendChild(overlay);
 
           textarea.focus();
           autoResize();
 
           // Wait for keyboard to appear, then scroll the highlighted card into view
-          setTimeout(() => {
-            cardEl.scrollIntoView({ behavior: "smooth", block: "center" });
-          }, 400);
+          if (window.visualViewport) {
+            window.visualViewport.addEventListener("resize", () => {
+              cardEl.scrollIntoView({ behavior: "smooth", block: "center" });
+            }, { once: true });
+          } else {
+            setTimeout(() => {
+              cardEl.scrollIntoView({ behavior: "smooth", block: "center" });
+            }, 400);
+          }
 
           const save = () => {
             cardEl.removeClass("ek-card-editing");
@@ -163,7 +176,12 @@ export function renderBoard(
             return;
           }
           if (ke.key === "Escape") {
-            textarea.replaceWith(textEl);
+            if (Platform.isMobile) {
+              cardEl.removeClass("ek-card-editing");
+              textarea.closest(".ek-mobile-editor")?.remove();
+            } else {
+              textarea.replaceWith(textEl);
+            }
             return;
           }
 

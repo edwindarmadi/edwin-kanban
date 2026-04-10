@@ -33,13 +33,13 @@ export function enableDragDrop(
     return el;
   }
 
-  // Record positions of all cards for FLIP animation
+  // Record positions of all cards for FLIP animation (keyed by stable card ID)
   function recordPositions(): Map<string, DOMRect> {
     const positions = new Map<string, DOMRect>();
     boardEl.querySelectorAll(`.${CSS.card}`).forEach((card) => {
       const el = card as HTMLElement;
-      const key = `${el.dataset.colIndex}-${el.dataset.cardIndex}`;
-      positions.set(key, el.getBoundingClientRect());
+      const key = el.dataset.cardId;
+      if (key) positions.set(key, el.getBoundingClientRect());
     });
     return positions;
   }
@@ -48,7 +48,8 @@ export function enableDragDrop(
   function animateCards(oldPositions: Map<string, DOMRect>) {
     boardEl.querySelectorAll(`.${CSS.card}`).forEach((card) => {
       const el = card as HTMLElement;
-      const key = `${el.dataset.colIndex}-${el.dataset.cardIndex}`;
+      const key = el.dataset.cardId;
+      if (!key) return;
       const oldRect = oldPositions.get(key);
       const newRect = el.getBoundingClientRect();
 
@@ -155,7 +156,7 @@ export function enableDragDrop(
     if (fromCol !== toCol || fromIdx !== toIdx) {
       const oldPositions = recordPositions();
       onReorder(fromCol, fromIdx, toCol, toIdx);
-      // Animation happens after re-render via the callback
+      requestAnimationFrame(() => animateCards(oldPositions));
     }
 
     removeIndicator();
