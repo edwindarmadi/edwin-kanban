@@ -1,4 +1,4 @@
-import { Menu, setIcon } from "obsidian";
+import { Menu, Platform, setIcon } from "obsidian";
 import { Board, BoardCallbacks } from "./types";
 import { CSS } from "./constants";
 
@@ -167,7 +167,7 @@ export function renderBoard(
         });
 
         textarea.addEventListener("keydown", (ke) => {
-          if (ke.key === "Enter" && !ke.shiftKey) {
+          if (ke.key === "Enter" && !ke.shiftKey && !Platform.isMobile) {
             ke.preventDefault();
             textarea.blur();
             return;
