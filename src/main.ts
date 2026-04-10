@@ -1,107 +1,197 @@
-import { Plugin, TFile, WorkspaceLeaf } from "obsidian";
-import { VIEW_TYPE_KANBAN, FRONTMATTER_KEY, FRONTMATTER_VALUE } from "./constants";
+import { Plugin, TFile, WorkspaceLeaf, normalizePath } from "obsidian";
+import { FRONTMATTER_KEY, FRONTMATTER_VALUE, VIEW_TYPE_KANBAN } from "./constants";
 import { KanbanView } from "./kanban-view";
+import { DEFAULT_SETTINGS, EdwinKanbanSettingTab } from "./settings";
+import { EdwinKanbanSettings } from "./types";
 
 export default class EdwinKanbanPlugin extends Plugin {
-  async onload() {
-    // Register the Kanban view type
-    this.registerView(VIEW_TYPE_KANBAN, (leaf) => new KanbanView(leaf));
+  settings: EdwinKanbanSettings = DEFAULT_SETTINGS;
 
-    // When a file is opened, check if it's a kanban board
+  async onload(): Promise<void> {
+    await this.loadSettings();
+
+    this.registerView(VIEW_TYPE_KANBAN, (leaf) => new KanbanView(leaf, this));
+
+    this.addSettingTab(new EdwinKanbanSettingTab(this.app, this));
+
     this.registerEvent(
       this.app.workspace.on("file-open", (file) => {
-        if (!file || !(file instanceof TFile)) return;
-        this.checkAndSwitchView(file);
-      })
-    );
-
-    // When switching tabs, check if the new leaf is a kanban board
-    this.registerEvent(
-      this.app.workspace.on("active-leaf-change", (leaf) => {
-        if (!leaf) return;
-        const file = (leaf.view as any)?.file;
         if (file instanceof TFile) {
-          this.checkAndSwitchView(file, leaf);
+          void this.openFileInKanbanIfNeeded(file);
         }
       })
     );
 
-    // Check files already open when plugin loads
+    this.registerEvent(
+      this.app.workspace.on("active-leaf-change", (leaf) => {
+        const file = this.getFileFromLeaf(leaf);
+        if (file) {
+          void this.openFileInKanbanIfNeeded(file, leaf ?? undefined);
+        }
+      })
+    );
+
     this.app.workspace.onLayoutReady(() => {
       this.app.workspace.iterateAllLeaves((leaf) => {
-        const file = (leaf.view as any)?.file;
-        if (file instanceof TFile) {
-          this.checkAndSwitchView(file, leaf);
+        const file = this.getFileFromLeaf(leaf);
+        if (file) {
+          void this.openFileInKanbanIfNeeded(file, leaf);
         }
       });
     });
 
-    // Catch cache race: metadata wasn't ready when file first opened
     this.registerEvent(
       this.app.metadataCache.on("changed", (file) => {
-        this.app.workspace.iterateAllLeaves((leaf) => {
-          if (
-            (leaf.view as any)?.file?.path === file.path &&
-            leaf.view.getViewType() === "markdown"
-          ) {
-            this.checkAndSwitchView(file, leaf);
+        const leaves = this.app.workspace.getLeavesOfType("markdown");
+        leaves.forEach((leaf) => {
+          const leafFile = this.getFileFromLeaf(leaf);
+          if (leafFile?.path === file.path) {
+            void this.openFileInKanbanIfNeeded(file, leaf);
           }
         });
       })
     );
 
-    // Catch startup race: layout ready before cache finished
-    this.registerEvent(
-      this.app.metadataCache.on("resolved", () => {
-        this.app.workspace.iterateAllLeaves((leaf) => {
-          const file = (leaf.view as any)?.file;
-          if (file instanceof TFile) {
-            this.checkAndSwitchView(file, leaf);
-          }
-        });
-      })
-    );
-
-    // Add ribbon icon
-    this.addRibbonIcon("columns-3", "New Kanban Board", async () => {
+    this.addRibbonIcon("columns-3", "Create new kanban board", async () => {
       await this.createNewBoard();
     });
 
-    // Add command
     this.addCommand({
       id: "create-kanban-board",
-      name: "Create new Kanban board",
+      name: "Create new kanban board",
       callback: () => this.createNewBoard(),
+    });
+
+    this.addCommand({
+      id: "open-current-note-as-kanban-board",
+      name: "Open current note as kanban board",
+      checkCallback: (checking) => {
+        const file = this.app.workspace.getActiveFile();
+        const activeView = this.app.workspace.getActiveViewOfType(KanbanView);
+
+        if (!file || !this.isKanbanFile(file) || activeView) {
+          return false;
+        }
+
+        if (!checking) {
+          void this.openFileInKanbanIfNeeded(file);
+        }
+
+        return true;
+      },
+    });
+
+    this.addCommand({
+      id: "open-current-board-as-markdown",
+      name: "Open current board as markdown",
+      checkCallback: (checking) => {
+        const activeView = this.app.workspace.getActiveViewOfType(KanbanView);
+        if (!activeView?.file) {
+          return false;
+        }
+
+        if (!checking) {
+          void this.openFileInMarkdown(activeView.file, activeView.leaf);
+        }
+
+        return true;
+      },
     });
   }
 
-  private checkAndSwitchView(file: TFile, existingLeaf?: WorkspaceLeaf) {
-    const cache = this.app.metadataCache.getFileCache(file);
-    if (cache?.frontmatter?.[FRONTMATTER_KEY] === FRONTMATTER_VALUE) {
-      const leaf = existingLeaf ?? this.app.workspace.getActiveViewOfType(KanbanView)?.leaf
-        ?? this.app.workspace.getMostRecentLeaf();
-      if (leaf && leaf.view.getViewType() !== VIEW_TYPE_KANBAN) {
-        leaf.setViewState({
-          type: VIEW_TYPE_KANBAN,
-          state: { file: file.path },
-        });
-      }
-    }
+  async loadSettings(): Promise<void> {
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    this.settings.defaultColumns = [
+      ...(this.settings.defaultColumns.length > 0
+        ? this.settings.defaultColumns
+        : DEFAULT_SETTINGS.defaultColumns),
+    ];
+    this.settings.newCardText =
+      this.settings.newCardText.trim() || DEFAULT_SETTINGS.newCardText;
   }
 
-  private async createNewBoard() {
-    const template = `---\nedwin-kanban: board\n---\n\n## Backlog\n\n## To Do\n\n## In Progress\n\n## Done\n\n%% kanban:settings\n\`\`\`\n{"edwin-kanban":"board"}\n\`\`\`\n%%\n`;
+  async saveSettings(): Promise<void> {
+    await this.saveData(this.settings);
+  }
 
-    const file = await this.app.vault.create(
-      `Kanban Board ${Date.now()}.md`,
-      template
-    );
+  refreshOpenKanbanViews(): void {
+    this.app.workspace.getLeavesOfType(VIEW_TYPE_KANBAN).forEach((leaf) => {
+      if (leaf.view instanceof KanbanView) {
+        leaf.view.refreshPreferences();
+      }
+    });
+  }
 
+  async openFileInMarkdown(file: TFile, leaf?: WorkspaceLeaf): Promise<void> {
+    const targetLeaf = leaf ?? this.app.workspace.getMostRecentLeaf();
+    if (!targetLeaf) return;
+
+    await targetLeaf.setViewState({
+      type: "markdown",
+      state: { file: file.path },
+      active: true,
+    });
+  }
+
+  private async openFileInKanbanIfNeeded(
+    file: TFile,
+    leaf?: WorkspaceLeaf
+  ): Promise<void> {
+    if (!this.isKanbanFile(file)) return;
+
+    const targetLeaf =
+      leaf ?? this.app.workspace.activeLeaf ?? this.app.workspace.getMostRecentLeaf();
+
+    if (!targetLeaf || targetLeaf.view.getViewType() === VIEW_TYPE_KANBAN) {
+      return;
+    }
+
+    await targetLeaf.setViewState({
+      type: VIEW_TYPE_KANBAN,
+      state: { file: file.path },
+      active: true,
+    });
+  }
+
+  private getFileFromLeaf(leaf: WorkspaceLeaf | null): TFile | null {
+    if (!leaf || !("file" in leaf.view)) {
+      return null;
+    }
+
+    const candidate = (leaf.view as { file?: unknown }).file;
+    return candidate instanceof TFile ? candidate : null;
+  }
+
+  private isKanbanFile(file: TFile): boolean {
+    const cache = this.app.metadataCache.getFileCache(file);
+    return cache?.frontmatter?.[FRONTMATTER_KEY] === FRONTMATTER_VALUE;
+  }
+
+  private async createNewBoard(): Promise<void> {
+    const template = this.createBoardTemplate();
+    const basePath = normalizePath(`Kanban Board ${Date.now()}.md`);
+    const file = await this.app.vault.create(basePath, template);
     const leaf = this.app.workspace.getLeaf(false);
+
+    if (this.settings.openNewBoardsInKanbanView) {
+      await leaf.setViewState({
+        type: VIEW_TYPE_KANBAN,
+        state: { file: file.path },
+        active: true,
+      });
+      return;
+    }
+
     await leaf.openFile(file);
   }
 
-  onunload() {
-    // Obsidian handles view cleanup automatically
+  private createBoardTemplate(): string {
+    const columns =
+      this.settings.defaultColumns.length > 0
+        ? this.settings.defaultColumns
+        : DEFAULT_SETTINGS.defaultColumns;
+    const columnSections = columns.map((title) => `## ${title}\n`).join("\n");
+
+    return `---\nedwin-kanban: board\n---\n\n${columnSections}\n%% kanban:settings\n\`\`\`\n{"edwin-kanban":"board"}\n\`\`\`\n%%\n`;
   }
 }

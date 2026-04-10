@@ -1,25 +1,58 @@
-import { TextFileView, WorkspaceLeaf, Platform } from "obsidian";
+import { Platform, TextFileView, WorkspaceLeaf } from "obsidian";
+import type EdwinKanbanPlugin from "./main";
 import { VIEW_TYPE_KANBAN } from "./constants";
-import { Board, BoardCallbacks } from "./types";
+import { KanbanBoardController } from "./board-renderer";
 import { parseMarkdown, serializeBoard } from "./parser";
-import { renderBoard } from "./board-renderer";
-import { enableDragDrop } from "./drag-drop";
+import { Board, BoardCallbacks } from "./types";
 
 export class KanbanView extends TextFileView {
   private board: Board | null = null;
-  private cleanupDragDrop: (() => void) | null = null;
+  private controller: KanbanBoardController | null = null;
+  private actionsInitialized = false;
+
+  constructor(leaf: WorkspaceLeaf, private readonly plugin: EdwinKanbanPlugin) {
+    super(leaf);
+  }
 
   getViewType(): string {
     return VIEW_TYPE_KANBAN;
   }
 
   getDisplayText(): string {
-    return this.file?.basename ?? "Kanban";
+    return this.file?.basename ?? "Kanban board";
+  }
+
+  async onOpen(): Promise<void> {
+    this.contentEl.addClass("ek-view-root");
+
+    if (!this.actionsInitialized) {
+      this.actionsInitialized = true;
+      this.addAction("file-text", "Open as markdown", async () => {
+        if (this.file) {
+          await this.plugin.openFileInMarkdown(this.file, this.leaf);
+        }
+      });
+    }
+
+    this.refreshPreferences();
+  }
+
+  async onClose(): Promise<void> {
+    this.clear();
   }
 
   setViewData(data: string, clear: boolean): void {
+    this.contentEl.addClass("ek-view-root");
+
+    if (clear) {
+      this.clear();
+      this.contentEl.addClass("ek-view-root");
+    }
+
     this.board = parseMarkdown(data);
-    this.refresh();
+    this.ensureController();
+    this.controller?.setBoard(this.board);
+    this.refreshPreferences();
   }
 
   getViewData(): string {
@@ -27,109 +60,99 @@ export class KanbanView extends TextFileView {
   }
 
   clear(): void {
-    this.contentEl.empty();
-    this.cleanupDragDrop?.();
-    this.contentEl.removeClass("ek-mobile");
-    this.contentEl.style.removeProperty("padding-bottom");
-    this.contentEl.style.removeProperty("scroll-padding-bottom");
-    this.contentEl.style.removeProperty("box-sizing");
+    this.controller?.destroy();
+    this.controller = null;
     this.board = null;
+    this.contentEl.empty();
   }
 
-  private refresh(): void {
-    // Save scroll position
-    const scrollLeft = this.contentEl.scrollLeft;
-    const scrollTop = this.contentEl.scrollTop;
+  refreshPreferences(): void {
+    this.contentEl.toggleClass("ek-mobile", Platform.isMobile);
+    this.controller?.setPreferences(this.plugin.settings.reduceMotion);
+  }
 
-    this.contentEl.empty();
-    this.cleanupDragDrop?.();
-
-    if (!this.board) return;
-
-    if (Platform.isMobile) {
-      this.contentEl.addClass("ek-mobile");
-      const bottomClearance =
-        "calc(var(--mobile-navbar-height, 0px) + env(safe-area-inset-bottom, 0px) + 24px)";
-      this.contentEl.style.setProperty("padding-bottom", bottomClearance);
-      this.contentEl.style.setProperty("scroll-padding-bottom", bottomClearance);
-      this.contentEl.style.setProperty("box-sizing", "border-box");
-    } else {
-      this.contentEl.removeClass("ek-mobile");
-      this.contentEl.style.removeProperty("padding-bottom");
-      this.contentEl.style.removeProperty("scroll-padding-bottom");
-      this.contentEl.style.removeProperty("box-sizing");
+  private ensureController(): void {
+    if (!this.controller) {
+      this.controller = new KanbanBoardController(this.contentEl, this.createCallbacks());
+      this.controller.setPreferences(this.plugin.settings.reduceMotion);
     }
+  }
 
-    const callbacks: BoardCallbacks = {
-      onCardEdit: (colIndex, cardIndex, newText) => {
-        if (!this.board) return;
-        this.board.columns[colIndex].cards[cardIndex].text = newText;
+  private createCallbacks(): BoardCallbacks {
+    return {
+      onCardEdit: (columnIndex, cardIndex, newText) => {
+        const card = this.board?.columns[columnIndex]?.cards[cardIndex];
+        if (!card) return;
+
+        card.text = newText;
+        this.controller?.updateCard(columnIndex);
         this.requestSave();
-        this.refresh();
+      },
+
+      onCardToggle: (columnIndex, cardIndex, checked) => {
+        const card = this.board?.columns[columnIndex]?.cards[cardIndex];
+        if (!card) return;
+
+        card.checked = checked;
+        this.controller?.updateCard(columnIndex);
+        this.requestSave();
       },
 
       onCardReorder: (fromCol, fromIdx, toCol, toIdx) => {
         if (!this.board) return;
-        const card = this.board.columns[fromCol].cards.splice(fromIdx, 1)[0];
-        this.board.columns[toCol].cards.splice(toIdx, 0, card);
+
+        const card = this.board.columns[fromCol]?.cards.splice(fromIdx, 1)[0];
+        if (!card) return;
+
+        this.board.columns[toCol]?.cards.splice(toIdx, 0, card);
+        this.controller?.moveCard(fromCol, toCol);
         this.requestSave();
-        this.refresh();
       },
 
-      onCardAdd: (colIndex) => {
-        if (!this.board) return;
-        this.board.columns[colIndex].cards.push({
-          text: "New card",
+      onCardAdd: (columnIndex) => {
+        const column = this.board?.columns[columnIndex];
+        if (!column) return;
+
+        column.cards.push({
+          text: this.plugin.settings.newCardText,
           checked: false,
         });
+        this.controller?.addCard(columnIndex);
         this.requestSave();
-        this.refresh();
 
-        // Focus the new card for immediate editing
-        setTimeout(() => {
-          const cards = this.contentEl.querySelectorAll(
-            `[data-col-index="${colIndex}"] .ek-card-text`
-          );
-          const lastCard = cards[cards.length - 1] as HTMLElement;
-          if (lastCard) {
-            lastCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
-            if (!Platform.isMobile) {
-              lastCard.click();
-            }
-          }
-        }, 50);
+        const cardIndex = column.cards.length - 1;
+        const win = this.contentEl.ownerDocument.defaultView;
+        win?.setTimeout(() => {
+          this.controller?.focusCardEditor(columnIndex, cardIndex);
+        }, this.plugin.settings.reduceMotion ? 0 : 24);
       },
 
-      onCardDelete: (colIndex, cardIndex) => {
-        if (!this.board) return;
-        this.board.columns[colIndex].cards.splice(cardIndex, 1);
+      onCardDelete: (columnIndex, cardIndex) => {
+        const column = this.board?.columns[columnIndex];
+        if (!column) return;
+
+        const viewWindow = this.contentEl.ownerDocument.defaultView;
+        if (
+          this.plugin.settings.confirmBeforeDelete &&
+          viewWindow &&
+          !viewWindow.confirm("Delete this card?")
+        ) {
+          return;
+        }
+
+        column.cards.splice(cardIndex, 1);
+        this.controller?.removeCard(columnIndex);
         this.requestSave();
-        this.refresh();
       },
 
-      onColumnColorChange: (colIndex, color) => {
-        if (!this.board) return;
-        this.board.columns[colIndex].color = color;
+      onColumnColorChange: (columnIndex, color) => {
+        const column = this.board?.columns[columnIndex];
+        if (!column) return;
+
+        column.color = color;
+        this.controller?.updateColumnColor(columnIndex);
         this.requestSave();
-        this.refresh();
       },
     };
-
-    renderBoard(this.board, this.contentEl, callbacks);
-    this.cleanupDragDrop = enableDragDrop(
-      this.contentEl,
-      callbacks.onCardReorder
-    );
-
-    if (Platform.isMobile) {
-      const spacer = this.contentEl.createDiv({ cls: "ek-mobile-bottom-spacer" });
-      spacer.style.height =
-        "calc(var(--mobile-navbar-height, 0px) + env(safe-area-inset-bottom, 0px) + 24px)";
-      spacer.style.pointerEvents = "none";
-    }
-
-    // Restore scroll position
-    this.contentEl.scrollLeft = scrollLeft;
-    this.contentEl.scrollTop = scrollTop;
   }
 }

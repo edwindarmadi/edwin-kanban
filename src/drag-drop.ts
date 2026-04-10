@@ -28,52 +28,9 @@ export function enableDragDrop(
   }
 
   function createIndicator(): HTMLElement {
-    const el = document.createElement("div");
+    const el = boardEl.ownerDocument.createElement("div");
     el.className = CSS.dropIndicator;
     return el;
-  }
-
-  // Record positions of all cards for FLIP animation
-  function recordPositions(): Map<string, DOMRect> {
-    const positions = new Map<string, DOMRect>();
-    boardEl.querySelectorAll(`.${CSS.card}`).forEach((card) => {
-      const el = card as HTMLElement;
-      const key = `${el.dataset.colIndex}-${el.dataset.cardIndex}`;
-      positions.set(key, el.getBoundingClientRect());
-    });
-    return positions;
-  }
-
-  // Animate cards from old positions to new positions (FLIP)
-  function animateCards(oldPositions: Map<string, DOMRect>) {
-    boardEl.querySelectorAll(`.${CSS.card}`).forEach((card) => {
-      const el = card as HTMLElement;
-      const key = `${el.dataset.colIndex}-${el.dataset.cardIndex}`;
-      const oldRect = oldPositions.get(key);
-      const newRect = el.getBoundingClientRect();
-
-      if (oldRect) {
-        const deltaX = oldRect.left - newRect.left;
-        const deltaY = oldRect.top - newRect.top;
-
-        if (deltaX !== 0 || deltaY !== 0) {
-          el.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-          el.style.transition = "none";
-
-          requestAnimationFrame(() => {
-            el.classList.add(CSS.cardAnimate);
-            el.style.transform = "";
-            el.style.transition = "";
-
-            el.addEventListener(
-              "transitionend",
-              () => el.classList.remove(CSS.cardAnimate),
-              { once: true }
-            );
-          });
-        }
-      }
-    });
   }
 
   function handleDragStart(e: DragEvent) {
@@ -153,9 +110,7 @@ export function enableDragDrop(
     }
 
     if (fromCol !== toCol || fromIdx !== toIdx) {
-      const oldPositions = recordPositions();
       onReorder(fromCol, fromIdx, toCol, toIdx);
-      // Animation happens after re-render via the callback
     }
 
     removeIndicator();

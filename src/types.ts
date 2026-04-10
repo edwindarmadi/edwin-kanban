@@ -21,6 +21,7 @@ export interface Board {
 
 export interface BoardCallbacks {
   onCardEdit(colIndex: number, cardIndex: number, newText: string): void;
+  onCardToggle(colIndex: number, cardIndex: number, checked: boolean): void;
   onCardReorder(
     fromCol: number,
     fromIdx: number,
@@ -30,4 +31,12 @@ export interface BoardCallbacks {
   onCardAdd(colIndex: number): void;
   onCardDelete(colIndex: number, cardIndex: number): void;
   onColumnColorChange(colIndex: number, color: string): void;
+}
+
+export interface EdwinKanbanSettings {
+  defaultColumns: string[];
+  openNewBoardsInKanbanView: boolean;
+  reduceMotion: boolean;
+  confirmBeforeDelete: boolean;
+  newCardText: string;
 }

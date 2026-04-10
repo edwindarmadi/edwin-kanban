@@ -93,10 +93,13 @@ export function serializeBoard(board: Board): string {
   }
 
   const settingsObj: BoardSettings = {
+    ...board.settings,
     "edwin-kanban": "board",
   };
   if (Object.keys(colorMap).length > 0) {
     settingsObj["column-colors"] = colorMap;
+  } else {
+    delete settingsObj["column-colors"];
   }
 
   md += `%% kanban:settings\n\`\`\`\n${JSON.stringify(settingsObj)}\n\`\`\`\n%%\n`;
