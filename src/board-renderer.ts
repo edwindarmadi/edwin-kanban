@@ -119,10 +119,12 @@ export function renderBoard(
         textarea.selectionStart = textarea.selectionEnd = textarea.value.length;
         autoResize();
 
-        // Ensure the card is visible above the keyboard on mobile
-        setTimeout(() => {
-          textarea.scrollIntoView({ behavior: "smooth", block: "center" });
-        }, 300);
+        // Scroll the card into view once the mobile keyboard opens
+        if (window.visualViewport) {
+          window.visualViewport.addEventListener("resize", () => {
+            textarea.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          }, { once: true });
+        }
 
         const save = () => {
           const newText = textarea.value.trim();
