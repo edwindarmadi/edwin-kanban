@@ -34,8 +34,9 @@ export class KanbanView extends TextFileView {
   }
 
   private refresh(): void {
-    // Save scroll position
-    const scrollLeft = this.contentEl.scrollLeft;
+    // Save scroll position from the board element (it handles horizontal scroll)
+    const boardEl = this.contentEl.querySelector(".ek-board");
+    const scrollLeft = boardEl?.scrollLeft ?? 0;
     const scrollTop = this.contentEl.scrollTop;
 
     this.contentEl.empty();
@@ -117,7 +118,8 @@ export class KanbanView extends TextFileView {
     }
 
     // Restore scroll position
-    this.contentEl.scrollLeft = scrollLeft;
+    const newBoardEl = this.contentEl.querySelector(".ek-board");
+    if (newBoardEl) newBoardEl.scrollLeft = scrollLeft;
     this.contentEl.scrollTop = scrollTop;
   }
 }
