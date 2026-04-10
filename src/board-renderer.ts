@@ -1,4 +1,4 @@
-import { Menu, Platform, setIcon } from "obsidian";
+import { Menu, setIcon } from "obsidian";
 import { Board, BoardCallbacks } from "./types";
 import { CSS } from "./constants";
 
@@ -114,53 +114,25 @@ export function renderBoard(
           textarea.style.height = textarea.scrollHeight + "px";
         };
 
-        if (Platform.isMobile) {
-          // Mobile: fixed-position editing bar above keyboard
-          cardEl.addClass("ek-card-editing");
+        textEl.replaceWith(textarea);
+        textarea.focus();
+        textarea.select();
+        autoResize();
 
-          const overlay = container.createDiv({ cls: "ek-mobile-editor" });
-          overlay.appendChild(textarea);
+        // Ensure the card is visible above the keyboard on mobile
+        setTimeout(() => {
+          textarea.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 300);
 
-          textarea.focus();
-          autoResize();
-
-          // Wait for keyboard to appear, then scroll the highlighted card into view
-          if (window.visualViewport) {
-            window.visualViewport.addEventListener("resize", () => {
-              cardEl.scrollIntoView({ behavior: "smooth", block: "center" });
-            }, { once: true });
+        const save = () => {
+          const newText = textarea.value.trim();
+          if (newText && newText !== card.text) {
+            callbacks.onCardEdit(colIndex, cardIndex, newText);
           } else {
-            setTimeout(() => {
-              cardEl.scrollIntoView({ behavior: "smooth", block: "center" });
-            }, 400);
+            textarea.replaceWith(textEl);
           }
-
-          const save = () => {
-            cardEl.removeClass("ek-card-editing");
-            const newText = textarea.value.trim();
-            if (newText && newText !== card.text) {
-              callbacks.onCardEdit(colIndex, cardIndex, newText);
-            }
-            overlay.remove();
-          };
-          textarea.addEventListener("blur", save);
-        } else {
-          // Desktop: inline editing
-          textEl.replaceWith(textarea);
-          textarea.focus();
-          textarea.select();
-          autoResize();
-
-          const save = () => {
-            const newText = textarea.value.trim();
-            if (newText && newText !== card.text) {
-              callbacks.onCardEdit(colIndex, cardIndex, newText);
-            } else {
-              textarea.replaceWith(textEl);
-            }
-          };
-          textarea.addEventListener("blur", save);
-        }
+        };
+        textarea.addEventListener("blur", save);
 
         // Auto-convert "- " at line start to "• "
         textarea.addEventListener("input", () => {
@@ -185,12 +157,7 @@ export function renderBoard(
             return;
           }
           if (ke.key === "Escape") {
-            if (Platform.isMobile) {
-              cardEl.removeClass("ek-card-editing");
-              textarea.closest(".ek-mobile-editor")?.remove();
-            } else {
-              textarea.replaceWith(textEl);
-            }
+            textarea.replaceWith(textEl);
             return;
           }
 
