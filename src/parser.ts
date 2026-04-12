@@ -5,6 +5,99 @@ export function nextCardId(): string {
   return `c${cardIdCounter++}`;
 }
 
+// ── Tag helpers ──
+//
+// Single source of truth for what counts as a tag body. Used by both
+// splitTrailingTags() (for chip extraction) and the menu-input validator.
+// Rules: only [A-Za-z0-9_-/], must contain at least one non-numeric char
+// (so #1 / #42 are rejected; #fff and #urgent are accepted).
+export const TAG_BODY_RE = /^[A-Za-z0-9_\-\/]*[A-Za-z_\-\/][A-Za-z0-9_\-\/]*$/;
+
+// Internal: walks trailing #tag tokens from the end of `segment` without
+// applying any refusal-to-strip safety net. Returns the tags found AND the
+// cursor position where the display portion ends (before the first stripped
+// whitespace). Used by both splitTrailingTags() and findTrailingTagsRaw().
+function walkTrailingTags(segment: string): { tags: string[]; displayEnd: number } {
+  const tags: string[] = [];
+  let cursor = segment.length;
+  while (true) {
+    const slice = segment.slice(0, cursor);
+    const m = slice.match(/(^|\s)#([^\s#]+)$/);
+    if (!m) break;
+    const tagBody = m[2];
+    if (!TAG_BODY_RE.test(tagBody)) break;
+    const matchStart = slice.length - m[0].length + m[1].length; // start of `#`
+    tags.unshift(tagBody);
+    cursor = matchStart;
+    while (cursor > 0 && /\s/.test(segment[cursor - 1])) cursor--;
+  }
+  return { tags, displayEnd: cursor };
+}
+
+// Returns trailing tags from a segment WITHOUT the refusal-to-strip safety net.
+// Used for duplicate-detection on the title line, so a title like `#urgent`
+// still reports `urgent` as an existing tag (which splitTrailingTags would
+// suppress to keep the visible title from collapsing to empty).
+export function findTrailingTagsRaw(segment: string): string[] {
+  return walkTrailingTags(segment).tags;
+}
+
+// Strict trailing-tag rule for DISPLAY purposes. Accepts EITHER a full plain
+// line OR a bullet content segment (the text after `• `) — callers strip the
+// bullet prefix before calling. Returns { display, tags } where:
+//   display = the segment with trailing tags removed and trailing whitespace trimmed
+//   tags    = ordered array of tag strings (without #), case-preserved
+// Refusal-to-strip safety net: if stripping would leave display empty
+// or whitespace-only, returns the original segment with no tags. (Use
+// findTrailingTagsRaw() if you need the tags regardless of that net.)
+export function splitTrailingTags(segment: string): { display: string; tags: string[] } {
+  const { tags, displayEnd } = walkTrailingTags(segment);
+  if (tags.length === 0) return { display: segment, tags: [] };
+  const display = segment.slice(0, displayEnd).replace(/\s+$/, "");
+  if (display.length === 0) return { display: segment, tags: [] };
+  return { display, tags };
+}
+
+// Returns all trailing tags from all lines of card.text, de-duped
+// case-insensitively, preserving first-occurrence order and original case.
+// For bullet lines this calls splitTrailingTags on the post-bullet content;
+// for plain lines on the whole line.
+export function extractCardTags(text: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const line of text.split("\n")) {
+    const bulletMatch = line.match(/^(\s*)(• )(.*)$/);
+    const segment = bulletMatch ? bulletMatch[3] : line;
+    const { tags } = splitTrailingTags(segment);
+    for (const t of tags) {
+      const key = t.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push(t);
+      }
+    }
+  }
+  return out;
+}
+
+// Append a tag to the title line (line 0) of a card's text. No-op if the
+// tag is already a trailing tag on line 0 (case-insensitive). Caller must
+// validate `tag` against TAG_BODY_RE first.
+export function appendTagToTitle(text: string, tag: string): string {
+  const lines = text.split("\n");
+  const titleLine = lines[0] ?? "";
+  // Use the raw walker (no safety net) so a title that consists only of tags
+  // — e.g. `#urgent` — still reports `urgent` as already present.
+  const existing = findTrailingTagsRaw(titleLine);
+  if (existing.some((t) => t.toLowerCase() === tag.toLowerCase())) {
+    return text;
+  }
+  // Append with a single space separator.
+  const sep = titleLine.length === 0 || /\s$/.test(titleLine) ? "" : " ";
+  lines[0] = `${titleLine}${sep}#${tag}`;
+  return lines.join("\n");
+}
+
 export function parseMarkdown(raw: string): Board {
   const columns: Column[] = [];
   let settings: BoardSettings = { "edwin-kanban": "board" };

@@ -107,7 +107,7 @@ export class KanbanView extends TextFileView {
       },
     };
 
-    renderBoard(this.board, this.contentEl, callbacks);
+    renderBoard(this.board, this.contentEl, callbacks, this.app);
     this.cleanupDragDrop = enableDragDrop(
       this.contentEl,
       callbacks.onCardReorder

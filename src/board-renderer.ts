@@ -1,6 +1,12 @@
-import { Menu, Platform, setIcon } from "obsidian";
+import { App, Menu, Modal, Notice, Platform, Setting, setIcon } from "obsidian";
 import { Board, BoardCallbacks } from "./types";
 import { CSS } from "./constants";
+import {
+  appendTagToTitle,
+  extractCardTags,
+  splitTrailingTags,
+  TAG_BODY_RE,
+} from "./parser";
 
 function renderCardText(container: HTMLElement, text: string): void {
   container.empty();
@@ -15,17 +21,84 @@ function renderCardText(container: HTMLElement, text: string): void {
       const dot = lineEl.createSpan({ cls: "ek-bullet" });
       // Nested bullets get hollow circles, top-level get filled
       dot.classList.add(indent > 0 ? "ek-bullet-hollow" : "ek-bullet-filled");
-      lineEl.createSpan({ text: bulletMatch[3] });
+      // Strip trailing tags from the post-bullet text portion only.
+      const { display } = splitTrailingTags(bulletMatch[3]);
+      lineEl.createSpan({ text: display });
     } else {
-      container.createDiv({ text: line || "\u200b" });
+      const { display } = splitTrailingTags(line);
+      container.createDiv({ text: display || "\u200b" });
     }
+  }
+
+  // Aggregate trailing tags across all lines and render as chips below.
+  const tags = extractCardTags(text);
+  if (tags.length > 0) {
+    const tagsEl = container.createDiv({ cls: "ek-card-tags" });
+    for (const tag of tags) {
+      tagsEl.createSpan({ cls: "ek-tag", text: `#${tag}` });
+    }
+  }
+}
+
+// Modal for "Add tag…" — single text input, Enter to submit, Escape to cancel.
+// All cancel paths (Escape, click outside, close button, empty submit) are no-ops.
+// Invalid input shows a Notice and keeps the modal open so the user can correct.
+class AddTagModal extends Modal {
+  private value = "";
+
+  constructor(app: App, private onSubmit: (tag: string) => void) {
+    super(app);
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.createEl("h3", { text: "Add tag" });
+
+    const setting = new Setting(contentEl).addText((text) => {
+      text
+        .setPlaceholder("e.g. urgent")
+        .onChange((v) => {
+          this.value = v;
+        });
+      text.inputEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          this.trySubmit();
+        }
+      });
+      // Focus the input
+      window.setTimeout(() => text.inputEl.focus(), 0);
+    });
+    setting.controlEl.style.width = "100%";
+  }
+
+  private trySubmit(): void {
+    let tag = this.value.trim();
+    if (tag.startsWith("#")) tag = tag.slice(1);
+    if (tag.length === 0) {
+      // Empty input → no-op
+      this.close();
+      return;
+    }
+    if (!TAG_BODY_RE.test(tag)) {
+      // Invalid → show feedback so the user knows Enter didn't silently fail.
+      new Notice("Tag must use letters, numbers, _, -, or / and can't be all digits.");
+      return;
+    }
+    this.onSubmit(tag);
+    this.close();
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
   }
 }
 
 export function renderBoard(
   board: Board,
   container: HTMLElement,
-  callbacks: BoardCallbacks
+  callbacks: BoardCallbacks,
+  app: App
 ): void {
   container.empty();
 
@@ -92,6 +165,19 @@ export function renderBoard(
       menuBtn.addEventListener("click", (e) => {
         e.stopPropagation();
         const menu = new Menu();
+        menu.addItem((item) =>
+          item
+            .setTitle("Add tag…")
+            .setIcon("tag")
+            .onClick(() => {
+              new AddTagModal(app, (tag) => {
+                const newText = appendTagToTitle(card.text, tag);
+                if (newText !== card.text) {
+                  callbacks.onCardEdit(colIndex, cardIndex, newText);
+                }
+              }).open();
+            })
+        );
         menu.addItem((item) =>
           item
             .setTitle("Delete")

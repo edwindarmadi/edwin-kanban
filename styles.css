@@ -143,6 +143,23 @@
   border: 1.5px solid var(--text-muted);
 }
 
+/* ── Card tags (chips) ── */
+.ek-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.ek-tag {
+  font-size: 0.75em;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: var(--background-modifier-hover);
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
 .ek-card-edit {
   width: 100%;
   border: none;
